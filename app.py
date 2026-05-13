@@ -114,7 +114,7 @@ if missing_keys:
     st.stop()  # 키가 없으면 여기서 멈춤 (아래 코드 실행 X)
 
 # 모든 키가 등록되어 있으면 변수에 담아 둡니다
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 SUPABASE_DB_CONNECTION = st.secrets["SUPABASE_DB_CONNECTION"]
