@@ -51,9 +51,8 @@ from llama_index.core import (
 )
 
 # --- Gemini API와 LlamaIndex를 연결하는 어댑터 ---
-from llama_index.llms.google_genai import GoogleGenAI            # Gemini를 LLM(답변 생성용)으로 쓰기 위한 어댑터
-from llama_index.embeddings.google_genai import GoogleGenAIEmbedding  # Gemini를 임베딩(텍스트→벡터)으로 쓰기 위한 어댑터
-from google.genai.types import EmbedContentConfig                # 임베딩 모델 세부 설정(차원 수 등)
+from llama_index.llms.openai import OpenAI
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 # --- Supabase pgvector와 LlamaIndex를 연결하는 어댑터 ---
 from llama_index.vector_stores.supabase import SupabaseVectorStore
@@ -87,11 +86,13 @@ st.set_page_config(
 # 친절한 안내 메시지를 보여주고 앱을 정지(st.stop)시킵니다.
 
 REQUIRED_KEYS = [
-    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_KEY",
     "SUPABASE_DB_CONNECTION",
 ]
+
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # 등록되지 않은 키가 있는지 확인 (= 리스트 컴프리헨션)
 missing_keys = [k for k in REQUIRED_KEYS if k not in st.secrets]
@@ -138,53 +139,20 @@ def init_supabase() -> Client:
 
 @st.cache_resource
 def init_llama_index():
-    """
-    LlamaIndex가 어떤 LLM과 임베딩 모델을 쓸지 전역 설정합니다.
-    
-    🧠 LLM이란?
-       Large Language Model의 약자. "글을 이해하고 글을 쓰는 AI 모델".
-       여기서는 Gemini 2.5 Flash를 씁니다 (무료 티어, 빠른 답변).
-    
-    🔢 임베딩이란?
-       텍스트(글)를 "의미를 담은 숫자 묶음(벡터)"으로 바꾸는 작업.
-       예: "휴학" → [0.23, -0.51, 0.89, ..., 0.42]  (768개 숫자)
-       이 숫자들이 신기한 점은:
-       - 의미가 비슷한 단어는 비슷한 숫자 패턴을 가짐
-       - "휴학"과 "학업 중단"은 글자는 다르지만 벡터가 매우 비슷함
-       - 그래서 글자가 달라도 의미로 검색할 수 있게 됨!
-       
-       gemini-embedding-001은 Google이 만든 최신 임베딩 모델로,
-       기본은 3072차원이지만 768차원으로 축소해서 사용합니다.
-       (Matryoshka Representation Learning이라는 기술 덕분에
-        차원을 줄여도 성능 손실이 거의 없음)
-    """
-    # LLM: 답변을 생성하는 AI (gemini-2.5-flash — 빠르고 무료)
-    Settings.llm = GoogleGenAI(
-        model="gemini-2.5-flash",
-        api_key=GEMINI_API_KEY,
-        temperature=0.1,  # 0~1 사이 값. 낮을수록 일관된 답변, 높을수록 창의적 답변
-                          # 사업보고서는 정확성이 중요하니 0.1로 낮게 설정
+    Settings.llm = OpenAI(
+        model="gpt-4o-mini",
+        api_key=OPENAI_API_KEY,
+        temperature=0.1,
     )
-    # 임베딩 모델: 텍스트를 768차원 벡터로 변환
-    # ⚠️ 참고: text-embedding-004는 2026년 1월 deprecated되어 더 이상 사용 불가
-    # 현재는 gemini-embedding-001을 사용 (기본 3072차원, output_dimensionality로 축소 가능)
-    # 우리는 Supabase 테이블이 VECTOR(768)이므로 768차원으로 출력하도록 설정
-    Settings.embed_model = GoogleGenAIEmbedding(
-        model_name="gemini-embedding-001",
-        api_key=GEMINI_API_KEY,
-        embedding_config=EmbedContentConfig(
-            output_dimensionality=768  # 3072 → 768로 축소 (Matryoshka)
-        ),
+
+    Settings.embed_model = OpenAIEmbedding(
+        model="text-embedding-3-small",
+        api_key=OPENAI_API_KEY,
+        dimensions=768,
     )
-    # 청크(chunk) 크기 설정
-    # 📝 청크란?
-    #    "PDF의 텍스트를 작은 조각으로 자른 것"
-    #    너무 크면 검색 정확도가 떨어지고, 너무 작으면 문맥이 사라집니다.
-    #    500자 정도가 한국어/영어 모두에서 적당한 크기입니다.
-    Settings.chunk_size = 500       # 청크당 글자 수
-    Settings.chunk_overlap = 50     # 청크 간 겹치는 글자 수
-                                    # 왜 겹치나? 문장이 청크 경계에서 잘려도
-                                    # 옆 청크에 일부 포함되어 의미가 보존되게 하기 위함
+
+    Settings.chunk_size = 1500
+    Settings.chunk_overlap = 100
 
 
 @st.cache_resource
