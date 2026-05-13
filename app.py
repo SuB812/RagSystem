@@ -35,6 +35,10 @@
 # Python 코드의 첫머리에는 항상 "어떤 도구를 쓸 건지" 선언합니다.
 # 이것을 'import'라고 하고, 마치 책 한 권에서 필요한 도구를 꺼내쓰는 것과 같아요.
 
+import fitz
+from llama_index.core import Document
+
+
 import streamlit as st              # 챗봇 웹페이지를 만드는 도구. st.title(), st.chat_input() 등 사용
 import pandas as pd                  # 표(테이블) 데이터를 다루는 도구. 채팅 기록 보여줄 때 사용
 import tempfile                      # 임시 폴더를 만드는 도구. 학생이 올린 PDF를 잠시 저장할 때 사용
@@ -269,13 +273,40 @@ with tab1:
                         # -----------------------------------------------------
                         # 단계 2: PDF 읽기 (텍스트 추출 + 자동 청킹)
                         # -----------------------------------------------------
-                        # SimpleDirectoryReader는 PDF를 페이지 단위로 읽고,
-                        # 각 페이지의 텍스트를 Document 객체로 만들어줍니다.
-                        # Section 3에서 설정한 chunk_size=500에 따라
-                        # 나중에 자동으로 청크로 잘립니다.
-                        documents = SimpleDirectoryReader(
-                            input_dir=temp_dir
-                        ).load_data()
+                        # PyMuPDF(fitz)를 사용해서 PDF 텍스트를 안정적으로 추출합니다.
+                        # SimpleDirectoryReader보다 한글 PDF 파싱이 잘 되는 편입니다.
+
+                        documents = []
+
+                        pdf = fitz.open(file_path)
+
+                        for page_idx, page in enumerate(pdf, start=1):
+                            text = page.get_text("text").strip()
+
+                            # 텍스트가 있는 페이지만 저장
+                            if text:
+                                documents.append(
+                                    Document(
+                                        text=text,
+                                        metadata={
+                                            "company": company_name,
+                                            "page_label": page_idx,
+                                            "file_name": uploaded_file.name,
+                                        },
+                                    )
+                                )
+
+                        pdf.close()
+
+                        # 디버깅용 미리보기
+                        st.write("추출된 페이지 수:", len(documents))
+
+                        if documents:
+                            st.text_area(
+                                "첫 페이지 텍스트 미리보기",
+                                documents[0].text[:1000],
+                                height=300,
+                            )
 
                         # -----------------------------------------------------
                         # 단계 3: 각 문서에 메타데이터(회사명) 추가
