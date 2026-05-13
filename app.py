@@ -92,7 +92,6 @@ REQUIRED_KEYS = [
     "SUPABASE_DB_CONNECTION",
 ]
 
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 # 등록되지 않은 키가 있는지 확인 (= 리스트 컴프리헨션)
 missing_keys = [k for k in REQUIRED_KEYS if k not in st.secrets]
